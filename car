@@ -1,0 +1,197 @@
+#include <stdio.h>
+#include <sqlite3.h>
+#include <stdlib.h>
+#include <time.h>
+void add(void)
+{   
+    int rc;
+    sqlite3 *db=NULL;
+    char name[10];
+    char car_num[10];
+    char in_time[30];
+    char out_time[15];
+    int num;
+    char *errmsg;
+    char sql[100];
+    int a,b,c;
+    rc=sqlite3_open("car",&db);
+    if(rc !=SQLITE_OK)
+    {
+        fprintf(stderr,"不能打开");
+	exit(1);
+    }
+    
+    time_t timep;
+    struct tm *p;
+    time(&timep);
+    
+    printf("停的位置编号：");
+    scanf("%d",&num);
+    getchar();
+    printf("车主名字：");
+    scanf("%s",name);
+    getchar();
+    printf("车牌号：");
+    scanf("%s",car_num);
+    getchar();
+    sprintf(sql,"insert into time(num,in_time)values(%d,%d)",num,timep);
+    rc=sqlite3_exec(db,sql,NULL,NULL,&errmsg);
+    if(rc !=SQLITE_OK)
+    {
+        fprintf(stderr,"sql error=%s\n",errmsg);
+        exit(1);
+    }
+    p=localtime(&timep);
+    a=p->tm_hour;
+    b=p->tm_min;
+    c=p->tm_sec;
+    sprintf(in_time,"%d:%d:%d",a,b,c);
+    sprintf(sql,"insert into test(num,name,car_num,in_time,out_time)values(%d,'%s','%s','%s','unclear')",num,name,car_num,in_time);
+    
+    rc=sqlite3_exec(db,sql,NULL,NULL,&errmsg);
+    if(rc !=SQLITE_OK)
+    {
+        fprintf(stderr,"sql error=%s\n",errmsg);
+        exit(1);
+    }
+    
+   
+}int display(void *para,int n_column,char**column_value,char**column_name)
+{
+    int i;
+    printf("开出车的信息：");
+    for(i=0;i<n_column;i++)
+    {
+        printf(" %s: %s  ",column_name[i],column_value[i]);
+    }
+    
+    printf("\n");
+    return 0;
+}
+
+void delete(void)
+{
+    sqlite3 *db=NULL;
+    
+    int rc,num,a,time2,time1;
+    char sql[100];
+    char name[10];
+    char *errmsg;
+    char out_time[15];
+    int nrow;
+    int ncolumn;
+    sqlite3_stmt *stmt = NULL;
+    rc=sqlite3_open("car",&db);
+    if(rc != SQLITE_OK)
+    {
+        fprintf(stderr,"打开失败！\n");
+	exit(1);
+    }
+    printf("开出的车的车位：");
+    scanf("%d",&num);
+    getchar();
+    
+    
+    time_t timep;
+    struct tm *p;
+    time(&timep);
+    p=localtime(&timep);
+    sprintf(out_time,"%d:%d:%d",p->tm_hour,p->tm_min,p->tm_sec);
+    sprintf(sql,"update test set out_time='%s' where num=%d;",out_time,num);
+    sqlite3_exec(db,sql,NULL,NULL,&errmsg);
+    
+    sprintf(sql,"select * from test where num=%d",num);
+    rc = sqlite3_prepare(db,sql,-1,&stmt,0); 
+    rc = sqlite3_step(stmt);
+    
+
+    ncolumn = sqlite3_column_count(stmt);
+    if((int)sqlite3_column_text(stmt,1) <= 0)
+    {
+        printf("这个车位没有车！\n");
+	exit(1);
+    }    
+    sqlite3_finalize(stmt);
+
+   /* time_t timep;
+    struct tm *p;
+    time(&timep);*/
+    sprintf(sql,"select * from time where num=%d;",num);
+    rc = sqlite3_prepare(db,sql,-1,&stmt,0); 
+    rc = sqlite3_step(stmt);
+    
+    ncolumn = sqlite3_column_count(stmt);
+    time2=atoi(sqlite3_column_text(stmt,1)); 
+    timep=mktime(p);
+    time1=timep-time2;
+    sqlite3_finalize(stmt);
+
+
+ /*   p=localtime(&timep);
+    sprintf(out_time,"%d:%d:%d",p->tm_hour,p->tm_min,p->tm_sec);
+    sprintf(sql,"update test set out_time='%s' where num=%d",out_time,num);
+    sqlite3_exec(db,sql,NULL,NULL,&errmsg);*/
+    sprintf(sql,"select * from test where num=%d;",num);
+    rc=sqlite3_exec(db,sql,display,NULL,&errmsg);
+    if(rc != SQLITE_OK )
+    {
+        fprintf(stderr,"失败\n");
+	exit(1);
+    }
+    else
+    {
+	   /* sprintf(sql,"select * from test where name='%s' and car_num='%s';",name,num);
+	    rc=sqlite3_exec(db,sql,display,NULL,&errmsg);
+	    if(rc != SQLITE_OK )
+	    {
+	        fprintf(stderr,"失败\n");
+		exit(1);
+	    }*/
+	    int i;
+	    printf("\n");
+	    sprintf(sql,"select * from test where num=%d;",num);
+	    rc = sqlite3_prepare(db,sql,-1,&stmt,0); 
+	    rc = sqlite3_step(stmt);
+            ncolumn = sqlite3_column_count(stmt);
+            printf("停车时间%s到%s\n",sqlite3_column_text(stmt,3),out_time);           
+	    int b;
+	    sqlite3_finalize(stmt);
+
+	    b=PRICE;
+	    printf("每秒%d元，总共费用为:%d\n",b,time1*PRICE);
+	    
+	    memset(sql,0,sizeof(sql)); 
+	    sprintf(sql,"delete from test where num=%d;",num);
+	    rc=sqlite3_exec(db,sql,NULL,NULL,&errmsg);
+	    if(rc !=SQLITE_OK)
+	    {
+	        fprintf(stderr,"%s删除出错！",errmsg);
+		exit(0);
+	    }
+	}
+/*    }
+  */  
+}
+
+
+int main()
+{
+    int a;
+    menu();
+    do
+    {
+        printf("请选择：");
+        scanf("%d",&a);
+        getchar();
+        switch(a)
+        {   
+            case 1: add();break;
+      	    case 2: delete();break;
+/*	    case 3: display();break;
+	    case 4; */
+
+        }
+    }while(a!=5);
+    return 0;
+}
+
